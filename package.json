@@ -1,0 +1,16 @@
+{
+  "name": "turso-orm",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/mime": "3.0.4"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "knex": "^3.1.0",
+    "zod": "^3.23.8"
+  }
+}
