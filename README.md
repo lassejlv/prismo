@@ -1,9 +1,3 @@
-# Turso-orm
+# Prismo
 
-Turso orm is a simple and lightweight kinda like ORM for turso, using the `web api` to communicate with the server.
-
-# Features
-
-- CRUD functions such as prisma does it
-- Table creations and migrations
-- Custom Typings
+**Prismo** is a lightweight library that brings Prisma-like convenience to the Turso database using its REST API. Simplify your database interactions with a familiar and fun-to-use interface.
