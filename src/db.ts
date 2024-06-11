@@ -5,4 +5,16 @@ const db = new TursoClient<"Guild" | "User">({
   token: process.env.TURSO_TOKEN!,
 });
 
-db.listTables().then(console.log).catch(console.error);
+interface Guild {
+  id?: string;
+  guildId?: string;
+  prefix?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+const guild = await db.findMany<Guild>({
+  table: "Guild",
+});
+
+console.log(guild);

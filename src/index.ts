@@ -14,11 +14,15 @@ class TursoClient<Tables extends string> {
     if (!parsedOptions.success) throw new Error("Invalid options");
   }
 
-  async findMany<T>(
-    table: Tables,
-    where?: T,
-    limit: number = 1000
-  ): Promise<T[]> {
+  async findMany<T>({
+    table,
+    where,
+    limit = 1000,
+  }: {
+    table: Tables;
+    where?: T;
+    limit?: number;
+  }): Promise<T[]> {
     if (!table) throw new Error("Table name is required");
 
     let sqlQuery = `SELECT * FROM ${table}`;
@@ -51,7 +55,7 @@ class TursoClient<Tables extends string> {
     return [];
   }
 
-  async findOne<T>(table: Tables, id: string): Promise<T> {
+  async findOne<T>({ table, id }: { table: Tables; id: string }): Promise<T> {
     if (!table || !id) throw new Error("Table name and id are required");
 
     const response = await sql(
@@ -68,7 +72,13 @@ class TursoClient<Tables extends string> {
     return transformedData[0] as T;
   }
 
-  async findFirst<T>(table: Tables, where: T): Promise<T> {
+  async findFirst<T>({
+    table,
+    where,
+  }: {
+    table: Tables;
+    where: T;
+  }): Promise<T> {
     if (!table) throw new Error("Table name is required");
     if (!where) throw new Error("Where object is required");
 
@@ -95,6 +105,87 @@ class TursoClient<Tables extends string> {
 
     const transformedData = transform(data.results[0].response.result);
     return transformedData[0] as T;
+  }
+
+  async create<T>({ table, data }: { table: Tables; data: T }): Promise<T> {
+    if (!table) throw new Error("Table name is required");
+    if (!data) throw new Error("Data object is required");
+
+    const columns = Object.keys(data);
+    const values = Object.values(data);
+
+    if (columns.length !== values.length)
+      throw new Error("Columns and values must have the same length");
+
+    const columnValuePairs = columns.map(
+      (col, index) => `${col} = '${values[index]}'`
+    );
+
+    const response = await sql(
+      `INSERT INTO ${table} (${columns.join(", ")}) VALUES ('${values.join(
+        "', '"
+      )}')`,
+      this.url,
+      this.token
+    );
+
+    const responseData = await response.json();
+
+    const isError = responseData.results[0].type === "error";
+    if (!response.ok || isError)
+      throw new Error(responseData.results[0].error.message);
+
+    return data;
+  }
+
+  async update<T>({
+    table,
+    where,
+    data,
+  }: {
+    table: Tables;
+    where: T;
+    data: T;
+  }): Promise<T> {
+    if (!table) throw new Error("Table name is required");
+    if (!where) throw new Error("Where object is required");
+    if (!data) throw new Error("Data object is required");
+
+    const whereColumns = Object.keys(where);
+    const whereValues = Object.values(where);
+
+    if (whereColumns.length !== whereValues.length)
+      throw new Error("Columns and values must have the same length");
+
+    const whereColumnValuePairs = whereColumns.map(
+      (col, index) => `${col} = '${whereValues[index]}'`
+    );
+
+    const columns = Object.keys(data);
+    const values = Object.values(data);
+
+    if (columns.length !== values.length)
+      throw new Error("Columns and values must have the same length");
+
+    const columnValuePairs = columns.map(
+      (col, index) => `${col} = '${values[index]}'`
+    );
+
+    const response = await sql(
+      `UPDATE ${table} SET ${columnValuePairs.join(
+        ", "
+      )} WHERE ${whereColumnValuePairs.join(" AND ")}`,
+      this.url,
+      this.token
+    );
+
+    const responseData = await response.json();
+
+    const isError = responseData.results[0].type === "error";
+    if (!response.ok || isError)
+      throw new Error(responseData.results[0].error.message);
+
+    return data;
   }
 
   async listTables(): Promise<string[]> {
