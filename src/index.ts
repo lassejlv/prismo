@@ -187,6 +187,7 @@ class PrismoClient<Tables extends string> {
   }
 
   async generateTypes() {
+    let finalTypes = "";
     const typesPath = ".prismo";
     const response = await sql("SELECT * FROM sqlite_master WHERE type='table'", this.url, this.token);
     const data = await response.json();
@@ -199,22 +200,30 @@ class PrismoClient<Tables extends string> {
     // Create types file
     await fs.mkdir(typesPath, { recursive: true });
     await fs.mkdir(`${typesPath}/sql`, { recursive: true });
-    await fs.mkdir(`${typesPath}/types`, { recursive: true });
 
     // prettier-ignore
-    await fs.writeFile(`${typesPath}/tables.ts`, `export type Tables = ${names.map((name: string) => `"${name}"`).join(" | ")};`);
+    finalTypes += `export type Tables = ${names.map((name: string) => `"${name}"`).join(" | ")};\n\n`;
 
     transformedData
       .filter((table: any) => table.name !== "sqlite_sequence")
       .forEach(async (table: any) => {
         const pathTo = `${typesPath}/sql/${table.name}`;
-        const pathToTs = `${typesPath}/types`;
+
         await fs.writeFile(pathTo + ".sql", table.sql);
 
         const sqlContent = await fs.readFile(pathTo + ".sql", "utf-8");
         const parsedSql = parseSQL(sqlContent);
-        await fs.writeFile(`${pathToTs}/${table.name}.ts`, parsedSql);
+
+        finalTypes += parsedSql + "\n\n";
       });
+
+    await new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve(true);
+      }, 0);
+    });
+
+    await fs.writeFile(`${typesPath}/types.ts`, finalTypes);
   }
 }
 
