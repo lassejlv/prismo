@@ -13,6 +13,7 @@ function sql(sql: string, url: string, token: string): Promise<Response> {
             sql,
           },
         },
+        { type: "close" },
       ],
     }),
   });

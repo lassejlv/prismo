@@ -1,20 +1,13 @@
-import { TursoClient } from ".";
+import { type Guild } from "./../.prismo/types/Guild";
+import { PrismoClient } from ".";
+import { type Tables } from "../.prismo/tables";
 
-const db = new TursoClient<"Guild" | "User">({
+const db = new PrismoClient<Tables>({
   url: process.env.TURSO_URL!,
   token: process.env.TURSO_TOKEN!,
 });
 
-interface Guild {
-  id?: string;
-  guildId?: string;
-  prefix?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+const guilds = await db.findMany<Guild>({ table: "Guild" });
+console.log(guilds);
 
-const guild = await db.findMany<Guild>({
-  table: "Guild",
-});
-
-console.log(guild);
+await db.generateTypes();

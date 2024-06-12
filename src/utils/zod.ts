@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-const TursoClientOptions = z.object({
+const PrismoClientOptions = z.object({
   url: z.string().url(),
   token: z.string(),
 });
 
-type TursoOptions = z.infer<typeof TursoClientOptions>;
+type PrismoOptions = z.infer<typeof PrismoClientOptions>;
 
-export { TursoClientOptions, type TursoOptions };
+export { PrismoClientOptions, type PrismoOptions };
