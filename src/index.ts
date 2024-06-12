@@ -3,7 +3,6 @@ import transform from "./utils/transform";
 import sql from "./utils/sql";
 import { PrismoClientOptions, type PrismoOptions } from "./utils/zod";
 import version from "./utils/version";
-import child_process from "child_process";
 import parseSQL from "./utils/parseSql";
 
 class PrismoClient<Tables extends string> {
@@ -186,7 +185,7 @@ class PrismoClient<Tables extends string> {
     return data;
   }
 
-  async generateTypes() {
+  async generateTypes({ writeToSQLFile }: { writeToSQLFile?: boolean }) {
     let finalTypes = "";
     const typesPath = ".prismo";
     const response = await sql("SELECT * FROM sqlite_master WHERE type='table'", this.url, this.token);
@@ -209,10 +208,11 @@ class PrismoClient<Tables extends string> {
       .forEach(async (table: any) => {
         const pathTo = `${typesPath}/sql/${table.name}`;
 
-        await fs.writeFile(pathTo + ".sql", table.sql);
+        if (writeToSQLFile) {
+          await fs.writeFile(pathTo + ".sql", table.sql);
+        }
 
-        const sqlContent = await fs.readFile(pathTo + ".sql", "utf-8");
-        const parsedSql = parseSQL(sqlContent);
+        const parsedSql = parseSQL(table.sql);
 
         finalTypes += parsedSql + "\n\n";
       });
@@ -227,4 +227,4 @@ class PrismoClient<Tables extends string> {
   }
 }
 
-export { PrismoClientOptions, PrismoClient, type PrismoOptions };
+export { PrismoClientOptions, PrismoClient, type PrismoOptions, parseSQL, version, sql, transform };
