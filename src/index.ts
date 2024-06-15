@@ -1,20 +1,33 @@
 import fs from "fs/promises";
-import transform from "./utils/transform";
+import { transform, transformResponse } from "./utils/transform";
 import sql from "./utils/sql";
 import { PrismoClientOptions, type PrismoOptions } from "./utils/zod";
 import version from "./utils/version";
 import parseSQL from "./utils/parseSql";
+import { createClient, type Client } from "@libsql/client";
 
 class PrismoClient<Tables extends string> {
   readonly url: string;
   readonly token: string;
+  readonly noRest: boolean;
+  public libsqlClient: Client | null = null;
 
   constructor(options: PrismoOptions) {
     this.url = options.url;
     this.token = options.token;
+    this.noRest = options.noRest || false;
 
     const parsedOptions = PrismoClientOptions.safeParse(options);
     if (!parsedOptions.success) throw new Error("Invalid options");
+
+    if (this.noRest) {
+      const client = createClient({
+        url: this.url,
+        authToken: this.token,
+      });
+
+      this.libsqlClient = client;
+    }
   }
 
   async findMany<T>({ table, where, limit = 1000 }: { table: Tables; where?: T; limit?: number }): Promise<T[]> {
@@ -34,6 +47,17 @@ class PrismoClient<Tables extends string> {
     }
 
     sqlQuery += ` LIMIT ${limit}`;
+
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(sqlQuery);
+      const data = response;
+
+      const transformedData = transformResponse(data);
+
+      return transformedData as T[];
+    }
+
+    // Using rest api
     const response = await sql(sqlQuery, this.url, this.token);
 
     const data = await response.json();
@@ -50,7 +74,18 @@ class PrismoClient<Tables extends string> {
   async findOne<T>({ table, id }: { table: Tables; id: string }): Promise<T> {
     if (!table || !id) throw new Error("Table name and id are required");
 
-    const response = await sql(`SELECT * FROM ${table} WHERE id = '${id}'`, this.url, this.token);
+    const sqlQuery = `SELECT * FROM ${table} WHERE id = '${id}'`;
+
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(sqlQuery);
+      const data = response;
+
+      const transformedData = transformResponse(data);
+
+      return transformedData[0] as T;
+    }
+
+    const response = await sql(sqlQuery, this.url, this.token);
 
     const data = await response.json();
     const isError = data.results[0].type === "error";
@@ -71,11 +106,18 @@ class PrismoClient<Tables extends string> {
 
     const columnValuePairs = columns.map((col, index) => `${col} = '${values[index]}'`);
 
-    const response = await sql(
-      `SELECT * FROM ${table} WHERE ${columnValuePairs.join(" AND ")} LIMIT 1`,
-      this.url,
-      this.token
-    );
+    const sqlQuery = `SELECT * FROM ${table} WHERE ${columnValuePairs.join(" AND ")} LIMIT 1`;
+
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(sqlQuery);
+      const data = response;
+
+      const transformedData = transformResponse(data);
+
+      return transformedData[0] as T;
+    }
+
+    const response = await sql(sqlQuery, this.url, this.token);
 
     const data = await response.json();
 
@@ -95,13 +137,18 @@ class PrismoClient<Tables extends string> {
 
     if (columns.length !== values.length) throw new Error("Columns and values must have the same length");
 
-    const columnValuePairs = columns.map((col, index) => `${col} = '${values[index]}'`);
+    const sqlQuery = `INSERT INTO ${table} (${columns.join(", ")}) VALUES ('${values.join("', '")}')`;
 
-    const response = await sql(
-      `INSERT INTO ${table} (${columns.join(", ")}) VALUES ('${values.join("', '")}')`,
-      this.url,
-      this.token
-    );
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(sqlQuery);
+      const data = response;
+
+      const transformedData = transformResponse(data);
+
+      return transformedData[0] as T;
+    }
+
+    const response = await sql(sqlQuery, this.url, this.token);
 
     const responseData = await response.json();
 
@@ -130,11 +177,18 @@ class PrismoClient<Tables extends string> {
 
     const columnValuePairs = columns.map((col, index) => `${col} = '${values[index]}'`);
 
-    const response = await sql(
-      `UPDATE ${table} SET ${columnValuePairs.join(", ")} WHERE ${whereColumnValuePairs.join(" AND ")}`,
-      this.url,
-      this.token
-    );
+    const sqlQuery = `UPDATE ${table} SET ${columnValuePairs.join(", ")} WHERE ${whereColumnValuePairs.join(" AND ")}`;
+
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(sqlQuery);
+      const data = response;
+
+      const transformedData = transformResponse(data);
+
+      return transformedData[0] as T;
+    }
+
+    const response = await sql(sqlQuery, this.url, this.token);
 
     const responseData = await response.json();
 
@@ -155,7 +209,18 @@ class PrismoClient<Tables extends string> {
 
     const whereColumnValuePairs = whereColumns.map((col, index) => `${col} = '${whereValues[index]}'`);
 
-    const response = await sql(`DELETE FROM ${table} WHERE ${whereColumnValuePairs.join(" AND ")}`, this.url, this.token);
+    const sqlQuery = `DELETE FROM ${table} WHERE ${whereColumnValuePairs.join(" AND ")}`;
+
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(sqlQuery);
+      const data = response;
+
+      const transformedData = transformResponse(data);
+
+      return transformedData[0] as T;
+    }
+
+    const response = await sql(sqlQuery, this.url, this.token);
 
     const responseData = await response.json();
 
@@ -165,7 +230,35 @@ class PrismoClient<Tables extends string> {
     return where;
   }
 
+  async sql(query: string): Promise<any> {
+    if (!query) throw new Error("Query is required");
+
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute(query);
+      const data = response;
+
+      return data;
+    }
+
+    const response = await sql(query, this.url, this.token);
+    const data = await response.json();
+    const isError = data.results[0].type === "error";
+    if (!response.ok || isError) throw new Error(data.results[0].error.message);
+
+    return data.results[0].response.result;
+  }
+
   async listTables(): Promise<string[]> {
+    if (this.noRest) {
+      const response = await this.libsqlClient?.execute("SELECT name FROM sqlite_master WHERE type='table';");
+      if (!response) throw new Error("Failed to list tables");
+
+      const data = response.rows;
+      const names = data.map((table: any) => table.name);
+
+      return names;
+    }
+
     const response = await sql("SELECT name FROM sqlite_master WHERE type='table';", this.url, this.token);
     const data = await response.json();
     const isError = data.results[0].type === "error";
@@ -178,6 +271,8 @@ class PrismoClient<Tables extends string> {
   }
 
   async version(): Promise<string> {
+    if (this.noRest) throw new Error("Version is not available when using libsql directly");
+
     const response = await version(this.url, this.token);
     if (!response.ok) throw new Error(response.status + response.statusText);
 
@@ -188,6 +283,7 @@ class PrismoClient<Tables extends string> {
   async generateTypes({ writeToSQLFile }: { writeToSQLFile?: boolean }) {
     let finalTypes = "";
     const typesPath = ".prismo";
+
     const response = await sql("SELECT * FROM sqlite_master WHERE type='table'", this.url, this.token);
     const data = await response.json();
 
@@ -224,6 +320,9 @@ class PrismoClient<Tables extends string> {
     });
 
     await fs.writeFile(`${typesPath}/types.ts`, finalTypes);
+    console.log(
+      `Generated types in ${typesPath}/types.ts${writeToSQLFile ? `\nGenerated SQL files in ${typesPath}/sql` : ""}`
+    );
   }
 }
 

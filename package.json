@@ -4,7 +4,7 @@
   "module": "src/index.ts",
   "type": "module",
   "main": "dist/index.js",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/lassejlv/prismo.git"
@@ -12,12 +12,13 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/mime": "3.0.4",
-    "prismoo": "^0.1.0"
+    "prismoo": "^0.1.1"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@libsql/client": "^0.6.2",
     "zod": "^3.23.8"
   }
 }

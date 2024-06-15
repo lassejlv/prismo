@@ -9,4 +9,14 @@ function transform(data: any) {
   return result;
 }
 
-export default transform;
+const transformResponse = (response: any) => {
+  return response.rows.map((row: any) => {
+    const transformedRow: any = {};
+    response.columns.forEach((col: any, index: any) => {
+      transformedRow[col] = row[col] || row[index.toString()];
+    });
+    return transformedRow;
+  });
+};
+
+export { transform, transformResponse };
